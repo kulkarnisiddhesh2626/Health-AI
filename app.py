@@ -14,23 +14,22 @@ from langchain_core.documents import Document
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI-Health Assistant", page_icon="⚕️", layout="wide")
 
-# --- MEDICAL UI & TRIAGE CSS ---
+# --- CLEAN MEDICAL UI CSS ---
 st.markdown("""
 <style>
     .stButton>button {
-        background-color: #059669; color: white; border-radius: 8px; border: none; padding: 0.5rem 1rem; font-weight: 600; transition: all 0.3s ease; width: 100%;
+        background-color: #059669; color: white; border-radius: 6px; border: none; font-weight: 600; transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background-color: #047857; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transform: translateY(-1px); color: white;
+        background-color: #047857; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: white;
     }
     div[data-testid="stExpander"] {
-        border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(16, 185, 129, 0.2); margin-bottom: 10px; border-left: 4px solid #059669;
+        border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 8px;
     }
     .disclaimer {
         font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;
     }
-    .faq-text { font-size: 0.9rem; color: #0284c7; font-style: italic; }
-    /* Make radio buttons wrap nicely on small mobile screens */
+    /* Horizontal radio buttons for cleaner UI */
     div.row-widget.stRadio > div { flex-direction: row; flex-wrap: wrap; }
 </style>
 """, unsafe_allow_html=True)
@@ -42,76 +41,114 @@ except KeyError:
     st.error("🚨 Groq API key not found! Please add GROQ_API_KEY to your Streamlit Secrets.")
     st.stop()
 
-# --- EXPANDED SYNTHETIC PATIENT DATABASE ---
+# --- 10 EXPANDED SYNTHETIC PATIENTS ---
 DEMO_PATIENTS = {
-    "🟢 Evelyn (Routine/Stable - Diabetes)": """SYNTHETIC RECORD - ID: SYN-8472910
-Name: Evelyn Carter | DOB: 1945-08-22 | Gender: Female
-CHIEF COMPLAINT: Routine 6-month follow-up. 
-ACTIVE CONDITIONS: Essential Hypertension, Type 2 Diabetes Mellitus.
-MEDICATIONS: Lisinopril 20mg daily, Metformin 1000mg BID.
-VITALS (2024-02-15): BP: 138/88, HR: 72, HbA1c: 7.2%.
-PLAN: Diabetes well-controlled. Continue current meds. Return in 6 months.""",
-    
-    "🟡 Marcus (Moderate - Asthma Flare)": """SYNTHETIC RECORD - ID: SYN-3920114
-Name: Marcus Thorne | DOB: 1982-11-04 | Gender: Male
-CHIEF COMPLAINT: Persistent dry cough and shortness of breath exacerbated by cold air. 
-ACTIVE CONDITIONS: Moderate Persistent Asthma.
-MEDICATIONS: Fluticasone/Salmeterol 250/50 mcg BID, Albuterol 90mcg PRN.
-VITALS (2024-03-01): BP: 120/78, HR: 84, SpO2: 96% on room air.
-EXAM: Expiratory wheezing noted in bilateral lower lung fields. 
-PLAN: Step up asthma therapy. Prescribed oral Prednisone 40mg taper for 5 days. Follow up in 2 weeks.""",
+    "Evelyn Carter (Type 2 Diabetes)": """Date: 2024-02-15. Patient: Evelyn Carter. DOB: 1945-08-22. Gender: Female.
+2012-04-10: Diagnosed with Essential Hypertension. Prescribed Lisinopril 20mg.
+2015-09-22: Diagnosed with Type 2 Diabetes. Started Metformin 500mg.
+2023-08-14: Metformin increased to 1000mg BID due to elevated HbA1c (8.1%).
+2024-02-15 (Current Visit): Routine 6-month follow-up. BP: 138/88. HbA1c improved to 7.2%. Plan: Continue meds, stable.""",
 
-    "🔴 Robert (Critical - Stroke Risk)": """SYNTHETIC RECORD - ID: SYN-9928311
-Name: Robert Vance | DOB: 1955-02-14 | Gender: Male
-CHIEF COMPLAINT: Presents to ER with sudden onset left-sided weakness, slurred speech, and facial drooping starting 45 minutes ago.
-ACTIVE CONDITIONS: Atrial Fibrillation (Non-compliant with anticoagulants), Severe Hypertension.
-MEDICATIONS: Metoprolol 50mg daily.
-VITALS (2024-03-20): BP: 195/110, HR: 115 (Irregular), SpO2: 94%.
-EXAM: Pronator drift on left arm. Expressive aphasia. 
-PLAN: Activate acute stroke protocol. STAT CT Head without contrast. Prepare for potential tPA administration. Admit to Neuro ICU.""",
+    "Marcus Thorne (Asthma Exacerbation)": """Date: 2024-03-01. Patient: Marcus Thorne. DOB: 1982-11-04. Gender: Male.
+1995-06-15: Diagnosed with Moderate Persistent Asthma.
+2024-02-28: Patient visited Urgent Care for dry cough and severe shortness of breath. SpO2 was 92%. Given Albuterol nebulizer.
+2024-03-01 (Current Visit): Follow-up. SpO2 96%. Expiratory wheezing present. Plan: Prescribed Prednisone 40mg taper for 5 days.""",
 
-    "🟢 Sarah (Routine/Stable - Post-Op)": """SYNTHETIC RECORD - ID: SYN-5592833
-Name: Sarah Jenkins | DOB: 1968-04-19 | Gender: Female
-CHIEF COMPLAINT: 2-week post-operative check for Left Total Hip Arthroplasty.
-ACTIVE CONDITIONS: Left Hip Osteoarthritis (Surgical).
-MEDICATIONS: Apixaban 2.5mg BID.
-VITALS (2024-03-10): BP: 128/82, Temp: 98.6F.
-EXAM: Surgical incision clean, dry, intact. No erythema.
-PLAN: Discontinue narcotics. Begin outpatient physical therapy."""
+    "Robert Vance (Acute Stroke Protocol)": """Date: 2024-03-20. Patient: Robert Vance. DOB: 1955-02-14. Gender: Male.
+2018-11-05: Diagnosed with Atrial Fibrillation. Non-compliant with Eliquis.
+2024-03-20 14:15: Arrived at ER. Sudden onset left-sided weakness and slurred speech starting at 13:30.
+2024-03-20 14:30: Vitals - BP: 195/110, HR: 115. Pronator drift observed.
+2024-03-20 14:45: STAT CT Head ordered. Neurology consulted for tPA administration.""",
+
+    "Sarah Jenkins (Post-Op Orthopedics)": """Date: 2024-03-10. Patient: Sarah Jenkins. DOB: 1968-04-19. Gender: Female.
+2024-02-25: Underwent Left Total Hip Arthroplasty (THA). Uncomplicated.
+2024-02-28: Discharged home with Apixaban 2.5mg BID and Oxycodone.
+2024-03-10 (Current Visit): 2-week post-op check. Incision clean, no erythema. Plan: Discontinue Oxycodone, start outpatient PT.""",
+
+    "David Kim (Chronic Kidney Disease)": """Date: 2024-01-12. Patient: David Kim. DOB: 1960-07-30. Gender: Male.
+2019-03-10: Diagnosed with Stage 2 CKD and Hypertension.
+2023-12-05: Lab results showed eGFR declined to 42 mL/min (Stage 3 CKD).
+2024-01-12 (Current Visit): BP 145/90. Complains of mild fatigue. Plan: Referral to Nephrology. Switch from Amlodipine to Losartan 50mg for renal protection.""",
+
+    "Maria Gonzalez (Rheumatoid Arthritis)": """Date: 2024-02-20. Patient: Maria Gonzalez. DOB: 1975-12-05. Gender: Female.
+2010-08-14: Diagnosed with Rheumatoid Arthritis. Maintained on Methotrexate.
+2024-02-10: Patient called clinic reporting severe joint stiffness in hands lasting >2 hours every morning.
+2024-02-20 (Current Visit): Swelling in bilateral MCP joints. Plan: Flare-up indicated. Adding short course Methylprednisolone and bridging to Adalimumab.""",
+
+    "James O'Connor (Post-MI Cardiology)": """Date: 2024-03-22. Patient: James O'Connor. DOB: 1958-09-12. Gender: Male.
+2024-01-15: Suffered Acute STEMI. Underwent PCI with 2 stents placed in LAD.
+2024-01-18: Discharged on Dual Antiplatelet Therapy (Aspirin + Ticagrelor), Atorvastatin 80mg, and Metoprolol.
+2024-03-22 (Current Visit): Cardiac rehab evaluation. No chest pain. Echo shows LVEF at 50%. Plan: Continue current regimen, patient doing well.""",
+
+    "Anita Patel (Hypothyroidism)": """Date: 2024-02-28. Patient: Anita Patel. DOB: 1988-04-25. Gender: Female.
+2021-05-10: Diagnosed with Hashimoto's Thyroiditis. Started Levothyroxine 75mcg.
+2024-02-15: Routine labs - TSH elevated at 6.5 mIU/L. Patient reports weight gain and cold intolerance.
+2024-02-28 (Current Visit): Plan: Increase Levothyroxine to 88mcg daily. Recheck TSH in 6 weeks.""",
+
+    "Lucas Wright (Pediatric Type 1 Diabetes)": """Date: 2024-03-05. Patient: Lucas Wright. DOB: 2014-11-10. Gender: Male.
+2024-03-01: Brought to ER by parents for extreme thirst, frequent urination, and weight loss. Blood glucose 450 mg/dL. Diagnosed with Type 1 Diabetes.
+2024-03-05 (Current Visit): Pediatric Endocrinology follow-up. Parents trained on insulin glargine and lispro administration. Plan: Close monitoring of blood sugars.""",
+
+    "Emily Chen (Obstetrics - Gestational DM)": """Date: 2024-03-18. Patient: Emily Chen. DOB: 1992-02-14. Gender: Female.
+2023-10-05: Confirmed intrauterine pregnancy. 
+2024-03-10: 24-week Oral Glucose Tolerance Test (OGTT) failed (1-hour glucose 185 mg/dL).
+2024-03-18 (Current Visit): 25 weeks gestation. Diagnosed with Gestational Diabetes. Plan: Dietary counseling initiated. Patient to check blood glucose 4x daily."""
 }
 
-# --- SIDEBAR: DEEP-DIVE ARCHITECTURE & EDUCATION ---
+# --- INITIALIZE SESSION STATE FOR CLICKABLE FAQs ---
+if "user_query" not in st.session_state:
+    st.session_state.user_query = ""
+
+def set_query(query_text):
+    st.session_state.user_query = query_text
+
+# --- SIDEBAR: CLEAN & STRUCTURED ---
 with st.sidebar:
-    st.markdown("<h2 style='color: #059669;'>ℹ️ Under the Hood: AI Architecture</h2>", unsafe_allow_html=True)
-    st.markdown("This system utilizes a highly advanced **Retrieval-Augmented Generation (RAG)** pipeline to ensure 100% deterministic, hallucination-free medical analysis.")
-    st.divider()
+    st.markdown("<h2 style='color: #059669;'>⚙️ System Overview</h2>", unsafe_allow_html=True)
     
-    with st.expander("🧩 1. Data Ingestion & Processing Layer", expanded=False):
+    with st.expander("📊 AI Architecture & Flow", expanded=True):
+        st.markdown("**Semantic Retrieval-Augmented Generation (RAG)**")
+        st.graphviz_chart('''
+            digraph {
+                bgcolor="transparent"
+                node [shape=box, style=filled, fillcolor="#ecfdf5", color="#059669", fontname="Helvetica", fontsize=9]
+                edge [color="#047857", arrowsize=0.6]
+                A [label="Patient Records"]
+                B [label="Text Chunking"]
+                C [label="FAISS Vector DB"]
+                D [label="Groq LLaMA AI"]
+                E [label="Clinical Output"]
+                A -> B -> C -> D -> E
+            }
+        ''')
+        st.markdown("*Data is vectorized into mathematical embeddings for high-accuracy, hallucination-free retrieval.*")
+        
+    with st.expander("🛠️ Tech Stack & Processing", expanded=False):
         st.markdown("""
-        **How it works:** When a doctor uploads a medical file (PDF, TXT, DOCX, CSV) or selects a patient, the system reads the raw data.
-        * **Chunking:** Medical records are long. We use a `RecursiveCharacterTextSplitter` to break the text into manageable chunks of 700 characters, with a 100-character overlap. 
-        * **Why overlap?** It ensures that a sentence split across two chunks doesn't lose its clinical context (e.g., separating "Patient is allergic to" and "Penicillin").
+        * **LLM Engine:** Groq (LLaMA-3.1-8B-Instant)
+        * **Vector DB:** FAISS (Facebook AI Similarity Search)
+        * **Embeddings:** HuggingFace `all-MiniLM-L6-v2`
+        * **Ingestion:** Supports PDF, TXT, DOCX, and CSV
+        """)
+        
+    with st.expander("📋 Scope & Limitations", expanded=False):
+        st.markdown("""
+        * **Scope:** Instantly summarizes chronologies, extracts vitals, and highlights clinical events.
+        * **Safety:** Strictly uses provided context. Will not generate outside medical advice.
+        * **Limitations:** Not a diagnostic tool. Must be reviewed by a certified physician.
         """)
 
-    with st.expander("🧠 2. Neural Embedding Layer", expanded=False):
-        st.markdown("""
-        **How it works:** Text cannot be directly understood by a database. We must translate the English text into high-dimensional mathematics (vectors).
-        * **Model:** `HuggingFace all-MiniLM-L6-v2`.
-        * **Action:** It reads every chunk and assigns it a coordinate in a 384-dimensional space based on its semantic medical meaning. "Myocardial Infarction" and "Heart Attack" will have nearly identical numerical coordinates.
-        """)
-
-    with st.expander("🗄️ 3. Vector Database (FAISS)", expanded=False):
-        st.markdown("""
-        **How it works:** We store these mathematical coordinates in **FAISS** (Facebook AI Similarity Search).
-        * **Action:** When you ask a question, the system translates your question into a vector, and FAISS calculates the mathematical distance (Cosine Similarity) to find the top 3 most relevant medical chunks instantly.
-        """)
-
-    with st.expander("🤖 4. Generation & Triage Layer (Groq/LLaMA)", expanded=False):
-        st.markdown("""
-        **How it works:** The system packages your question AND the retrieved medical chunks, then sends them to the **Groq LLaMA-3.1** engine.
-        * **Guardrails:** The AI is strictly instructed to *only* use the provided context. If the answer isn't there, it refuses to guess.
-        * **Clinical Triage:** The AI evaluates the severity of the retrieved context and tags the output as Stable, Moderate, or Critical, which the UI uses to color-code the response.
-        """)
+# --- HELPER FUNCTION: COLOR PARSER ---
+def render_triage_response(raw_text, process_time):
+    st.caption(f"⏱️ **Processed Timeline:** {process_time}")
+    if "[CRITICAL]" in raw_text:
+        st.error(f"🔴 **CRITICAL STATUS**\n\n{raw_text.replace('[CRITICAL]', '').strip()}")
+    elif "[MODERATE]" in raw_text:
+        st.warning(f"🟡 **MODERATE STATUS**\n\n{raw_text.replace('[MODERATE]', '').strip()}")
+    elif "[STABLE]" in raw_text:
+        st.success(f"🟢 **STABLE STATUS**\n\n{raw_text.replace('[STABLE]', '').strip()}")
+    else:
+        st.info(raw_text)
 
 # --- CORE PROCESSING FUNCTIONS ---
 @st.cache_resource
@@ -121,10 +158,10 @@ def load_embeddings():
 def process_documents(data_source, selected_data, uploaded_files):
     documents = []
     
-    if data_source == "🧪 Try AI-Demo Patients" and selected_data:
-        documents.append(Document(page_content=selected_data, metadata={"source": "AI Demo Database"}))
+    if data_source == "🧪 Load Demo Patient" and selected_data:
+        documents.append(Document(page_content=selected_data, metadata={"source": "Database"}))
             
-    elif data_source == "📂 Upload Patient Records" and uploaded_files:
+    elif data_source == "📂 Upload Medical Records" and uploaded_files:
         for file in uploaded_files:
             file_extension = file.name.split(".")[-1].lower()
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as temp_file:
@@ -139,8 +176,6 @@ def process_documents(data_source, selected_data, uploaded_files):
                     documents.extend(Docx2txtLoader(temp_file_path).load())
                 elif file_extension == "csv":
                     documents.extend(CSVLoader(temp_file_path).load())
-                else:
-                    st.warning(f"Unsupported file format: {file_extension}")
             except Exception as e:
                 st.error(f"Error reading {file.name}: {e}")
             finally:
@@ -153,127 +188,89 @@ def process_documents(data_source, selected_data, uploaded_files):
     texts = text_splitter.split_documents(documents)
     
     embeddings = load_embeddings()
-    vectorstore = FAISS.from_documents(texts, embeddings)
-    return vectorstore
+    return FAISS.from_documents(texts, embeddings)
 
 # --- MAIN PAGE: UI ---
 st.title("⚕️ AI-Health Assistant")
-st.markdown("Advanced clinical intelligence, triage, and semantic EHR analysis.")
+st.markdown("Clinical intelligence and semantic EHR analysis.")
 
-st.markdown("### 1️⃣ Select Patient Data")
-data_source = st.radio(
-    "How would you like to load data?", 
-    ["🧪 Try AI-Demo Patients", "📂 Upload Patient Records"],
-    horizontal=True
-)
+st.markdown("### 1️⃣ Patient Selection")
+data_source = st.radio("Data Source:", ["🧪 Load Demo Patient", "📂 Upload Medical Records"], horizontal=True, label_visibility="collapsed")
 
 selected_patient_data = None
 uploaded_files = None
 
-if data_source == "🧪 Try AI-Demo Patients":
-    patient_name = st.selectbox("Choose a demo patient profile:", list(DEMO_PATIENTS.keys()))
+if data_source == "🧪 Load Demo Patient":
+    patient_name = st.selectbox("Select Patient Profile:", list(DEMO_PATIENTS.keys()))
     selected_patient_data = DEMO_PATIENTS[patient_name]
 else:
-    # Expanded file types
-    uploaded_files = st.file_uploader("Upload EHR Data (PDF, TXT, DOCX, CSV)", type=["pdf", "txt", "docx", "csv"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload Records (PDF, TXT, DOCX, CSV)", type=["pdf", "txt", "docx", "csv"], accept_multiple_files=True)
 
 st.divider()
 
 llm = ChatGroq(temperature=0, model_name="llama-3.1-8b-instant", groq_api_key=groq_api_key)
 
-with st.spinner("AI is analyzing the records..."):
+with st.spinner("Processing medical context..."):
     vectorstore = process_documents(data_source, selected_patient_data, uploaded_files)
 
 if vectorstore:
-    st.success("✅ Patient Data Loaded. The AI Assistant is ready.")
-    
-    tab_summary, tab_chat = st.tabs(["📋 AI Clinical Summary", "💬 Ask the AI Assistant"])
+    tab_summary, tab_chat = st.tabs(["📋 Auto-Summary & Timeline", "💬 Ask AI Assistant"])
     
     with tab_summary:
-        st.markdown("### Auto-Generated Patient Breakdown")
-        if st.button("✨ Generate AI Summary & Triage"):
-            with st.spinner("AI is writing the summary..."):
-                query = "Provide a structured clinical summary: Demographics, Chief Complaint, Active Conditions, and Plan. Also, state the overall clinical stability."
-                docs = vectorstore.similarity_search(query, k=5)
+        if st.button("✨ Generate Clinical Summary & Timeline"):
+            with st.spinner("Analyzing timeline..."):
+                query = "Provide a structured summary. Include: 1. Demographics. 2. Chief Complaint. 3. Chronological Timeline of Medical Events (use exact dates). 4. Plan."
+                docs = vectorstore.similarity_search(query, k=4)
                 context = "\n\n".join([doc.page_content for doc in docs])
                 
-                prompt = f"Based ONLY on the following medical records:\n{context}\n\nTask: {query}"
+                prompt = f"""Based ONLY on the context below, perform the task. 
+                First, assess the patient's stability and start your response with exactly ONE tag: [CRITICAL], [MODERATE], or [STABLE].
+                Then provide the structured summary.
+                Context: {context}\nTask: {query}"""
+                
                 summary_response = llm.invoke(prompt)
-                
-                # Timestamp Integration
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                st.caption(f"⏱️ **Generated on:** {current_time} (System Time)")
-                st.info(summary_response.content)
                 
-                st.download_button(
-                    label="📥 Download AI Summary (.txt)",
-                    data=f"Timestamp: {current_time}\n\n{summary_response.content}",
-                    file_name="AI_Clinical_Summary.txt",
-                    mime="text/plain"
-                )
+                render_triage_response(summary_response.content, current_time)
 
     with tab_chat:
-        st.markdown("### Ask Questions About the Records")
-        
-        # Suggested FAQs
-        st.markdown("<p class='faq-text'>💡 <b>Suggested Questions:</b> What are the patient's active conditions? | Are there any vital sign abnormalities? | Summarize the current medication plan.</p>", unsafe_allow_html=True)
-        
-        user_query = st.text_input("Type your specific clinical question:")
+        st.markdown("### Quick Queries")
+        # CLICKABLE BUTTONS FOR FAQs
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.button("📋 Summarize the medication plan", on_click=set_query, args=("Summarize the medication plan.",))
+        with col2:
+            st.button("🫀 Are there abnormal vitals?", on_click=set_query, args=("Are there any abnormal vitals?",))
+        with col3:
+            st.button("📅 List recent clinical events", on_click=set_query, args=("List the most recent clinical events chronologically.",))
+
+        user_query = st.text_input("Or type a specific question:", value=st.session_state.user_query)
         
         if user_query:
-            with st.spinner("AI is evaluating the query..."):
+            with st.spinner("Searching records..."):
                 retrieved_docs = vectorstore.similarity_search(user_query, k=4)
                 context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
                 
-                # STRICT GUARDRAILS + TRIAGE COLOR INJECTION
-                final_prompt = f"""You are a professional clinical AI assistant. Use ONLY the context below. 
-                First, evaluate the medical severity of the information relevant to the question. 
-                Start your entire response with exactly one of these tags based on your medical assessment:
-                [CRITICAL] (if the context mentions emergencies, severe instability, stroke, heart attack, ER visits)
-                [MODERATE] (if the context mentions flare-ups, necessary medication changes, or moderate symptoms)
-                [STABLE] (if the context mentions routine checkups, well-controlled conditions, or normal findings)
-                
-                After the tag, provide your detailed answer. Do not guess or provide outside advice.
-                
+                final_prompt = f"""Use ONLY the context below. First assess severity and start with exactly ONE tag: [CRITICAL], [MODERATE], or [STABLE]. 
+                Then answer the question clearly.
                 Context: {context_text}
-                Question: {user_query}
-                Answer:"""
+                Question: {user_query}"""
                 
                 result = llm.invoke(final_prompt)
-                raw_response = result.content
-                
-                st.markdown("#### 🤖 AI Clinical Evaluation")
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                st.caption(f"⏱️ **Processed at:** {current_time}")
                 
-                # Parse the AI's hidden tag to color-code the UI
-                if "[CRITICAL]" in raw_response:
-                    clean_text = raw_response.replace("[CRITICAL]", "").strip()
-                    st.error(f"🔴 **HIGH IMPACT / CRITICAL:**\n\n{clean_text}")
-                elif "[MODERATE]" in raw_response:
-                    clean_text = raw_response.replace("[MODERATE]", "").strip()
-                    st.warning(f"🟡 **MODERATE IMPACT / OBSERVATION:**\n\n{clean_text}")
-                elif "[STABLE]" in raw_response:
-                    clean_text = raw_response.replace("[STABLE]", "").strip()
-                    st.success(f"🟢 **STABLE / ROUTINE:**\n\n{clean_text}")
-                else:
-                    # Fallback if AI forgets the tag
-                    st.info(raw_response)
+                render_triage_response(result.content, current_time)
                 
-                st.markdown("#### 📑 Ground Truth Evidence")
-                for i, doc in enumerate(retrieved_docs):
-                    with st.expander(f"Reference Evidence {i+1}"):
-                        source_name = doc.metadata.get('source', 'AI Demo Database')
-                        st.markdown(f"**Source:** `{source_name}`")
-                        st.markdown(f"**Exact Text:**\n> {doc.page_content}")
+                with st.expander("📑 View Source Evidence"):
+                    for i, doc in enumerate(retrieved_docs):
+                        st.markdown(f"**Excerpt {i+1}:** > {doc.page_content}")
 else:
-    if data_source == "📂 Upload Patient Records":
-        st.info("📂 Please upload files above to activate the AI. Supported: PDF, TXT, DOCX, CSV.")
+    if data_source == "📂 Upload Medical Records":
+        st.info("Please upload files to proceed.")
 
 # --- CLINICAL DISCLAIMER ---
 st.markdown("""
 <div class="disclaimer">
-    <strong>⚠️ Regulatory Disclaimer:</strong> This AI-Health Assistant is a demonstration prototype. 
-    It is not certified medical software. AI-generated outputs, including triage severity color-coding, should never replace professional medical diagnosis or clinical judgment.
+    <strong>⚠️ Disclaimer:</strong> Demonstration prototype only. Not for medical diagnosis.
 </div>
 """, unsafe_allow_html=True)
