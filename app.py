@@ -45,13 +45,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR & API SETUP ---
+# --- SECURE API KEY FETCHING ---
+# This looks inside Streamlit's hidden vault for your key
+try:
+    groq_api_key = st.secrets["GROQ_API_KEY"]
+except KeyError:
+    st.error("🚨 Groq API key not found! Please add GROQ_API_KEY to your Streamlit Secrets in the app settings.")
+    st.stop()
+
+# --- SIDEBAR SETUP ---
 with st.sidebar:
     st.title("⚕️ Health.AI")
     st.markdown("*Clinical Intelligence Dashboard*")
-    st.divider()
-    
-    groq_api_key = st.text_input("🔑 Enter Groq API Key:", type="password", help="Get a free key at console.groq.com")
     st.divider()
     
     st.subheader("📊 Patient Data Source")
@@ -153,10 +158,7 @@ def process_documents(data_source, uploaded_files):
     return vectorstore
 
 # --- MAIN APPLICATION UI ---
-if not groq_api_key:
-    st.warning("👋 **Welcome to Health.AI!** Please paste your Groq API Key in the sidebar on the left to unlock the dashboard.")
-    st.stop()
-
+# Initialize the newest supported Groq model
 llm = ChatGroq(temperature=0, model_name="llama-3.1-8b-instant", groq_api_key=groq_api_key)
 
 st.title("🩻 Patient Profile & Clinical Insights")
