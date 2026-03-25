@@ -1,9 +1,17 @@
 [theme]
-primaryColor = "#2E8B57" 
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#1E1E1E" 
-textColor = "#000000"
-font = "sans serif"
+# Forces a clean, readable Light Theme
+base="light"
 
-[server]
-enableCORS = false
+# Main app background (pure white)
+backgroundColor="#ffffff"
+
+# Sidebar background (light grayish-blue)
+secondaryBackgroundColor="#f1f5f9"
+
+# Force all text to be pure black
+textColor="#000000"
+
+# Button colors (Streamlit blue)
+primaryColor="#2563eb"
+
+font="sans serif"
