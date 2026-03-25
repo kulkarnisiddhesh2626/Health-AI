@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import tempfile
 import requests
+
+# Modern LangChain Imports
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -9,7 +11,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain_community.document_loaders import TextLoader, PyPDFLoader
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Health.AI | Clinical Assistant", page_icon="⚕️", layout="wide")
@@ -35,12 +37,10 @@ with st.sidebar:
 
 # --- FHIR API INTEGRATION ---
 def fetch_fhir_patient_data():
-    """Fetches realistic synthetic patient data from the public HAPI FHIR server."""
     base_url = "http://hapi.fhir.org/baseR4"
     patient_text = ""
     
     try:
-        # 1. Fetch a random patient
         patient_resp = requests.get(f"{base_url}/Patient?_count=1&_sort=-_lastUpdated", timeout=10)
         patient_resp.raise_for_status()
         patient_data = patient_resp.json()
@@ -57,7 +57,6 @@ def fetch_fhir_patient_data():
         
         patient_text += f"Patient Name: {full_name}\nID: {patient_id}\nGender: {gender}\nBirth Date: {birth_date}\n\n"
         
-        # 2. Fetch conditions for this patient
         cond_resp = requests.get(f"{base_url}/Condition?patient={patient_id}", timeout=10)
         if cond_resp.status_code == 200:
             cond_data = cond_resp.json()
@@ -87,7 +86,6 @@ def process_documents(data_source, uploaded_files):
         st.info("Reaching out to HAPI FHIR Public Server...")
         fhir_text = fetch_fhir_patient_data()
         if fhir_text:
-            # Convert text string into a LangChain Document object
             doc = Document(page_content=fhir_text, metadata={"source": "HAPI FHIR Public API"})
             documents.append(doc)
             with st.expander("👀 View Raw Data Fetched from API"):
