@@ -14,43 +14,29 @@ from langchain_core.documents import Document
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Health.AI | Clinical Assistant", page_icon="⚕️", layout="wide", initial_sidebar_state="expanded")
 
-# --- SAFE CUSTOM CSS (Enhances UI without breaking text contrast) ---
+# --- SAFE CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* Modern Buttons */
     .stButton>button {
-        background-color: #0ea5e9;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        width: 100%;
+        background-color: #0ea5e9; color: white; border-radius: 8px; border: none; padding: 0.5rem 1rem; font-weight: 600; transition: all 0.3s ease; width: 100%;
     }
     .stButton>button:hover {
-        background-color: #0284c7;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-        color: white;
+        background-color: #0284c7; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transform: translateY(-1px); color: white;
     }
-    
-    /* Clean Expanders (Cards) */
     div[data-testid="stExpander"] {
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        margin-bottom: 10px;
+        border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(148, 163, 184, 0.2); margin-bottom: 10px;
+    }
+    .disclaimer {
+        font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SECURE API KEY FETCHING ---
-# This looks inside Streamlit's hidden vault for your key
 try:
     groq_api_key = st.secrets["GROQ_API_KEY"]
 except KeyError:
-    st.error("🚨 Groq API key not found! Please add GROQ_API_KEY to your Streamlit Secrets in the app settings.")
+    st.error("🚨 Groq API key not found! Please add GROQ_API_KEY to your Streamlit Secrets.")
     st.stop()
 
 # --- SIDEBAR SETUP ---
@@ -62,50 +48,33 @@ with st.sidebar:
     st.subheader("📊 Patient Data Source")
     data_source = st.radio(
         "Choose input method:", 
-        ["Fetch via FHIR API (Mock Data)", "Upload Medical Records"]
+        [
+            "🧪 Try Demo (Synthetic Patient)", 
+            "📂 Upload Medical Records",
+            "🌐 Fetch via FHIR API"
+        ]
     )
     
     uploaded_files = None
-    if data_source == "Upload Medical Records":
+    if data_source == "📂 Upload Medical Records":
         uploaded_files = st.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
 # --- FHIR API INTEGRATION ---
 def fetch_fhir_patient_data():
     base_url = "http://hapi.fhir.org/baseR4"
-    patient_text = ""
-    
     try:
         patient_resp = requests.get(f"{base_url}/Patient?_count=1&_sort=-_lastUpdated", timeout=10)
         patient_resp.raise_for_status()
         patient_data = patient_resp.json()
+        if not patient_data.get('entry'): return None
         
-        if not patient_data.get('entry'):
-            return None
-            
         patient = patient_data['entry'][0]['resource']
         patient_id = patient.get('id', 'Unknown')
         name_info = patient.get('name', [{}])[0]
         full_name = f"{name_info.get('given', [''])[0]} {name_info.get('family', '')}"
-        gender = patient.get('gender', 'Unknown').capitalize()
-        birth_date = patient.get('birthDate', 'Unknown')
         
-        patient_text += f"Patient Name: {full_name}\nID: {patient_id}\nGender: {gender}\nBirth Date: {birth_date}\n\n"
-        
-        cond_resp = requests.get(f"{base_url}/Condition?patient={patient_id}", timeout=10)
-        if cond_resp.status_code == 200:
-            cond_data = cond_resp.json()
-            patient_text += "Medical Conditions:\n"
-            if cond_data.get('entry'):
-                for entry in cond_data['entry']:
-                    condition = entry['resource'].get('code', {}).get('text', 'Unknown Condition')
-                    patient_text += f"- {condition}\n"
-            else:
-                patient_text += "- No recorded conditions in this dataset.\n"
-                
-        return patient_text
-        
-    except Exception as e:
-        st.error(f"Failed to fetch data from FHIR API: {e}")
+        return f"Patient Name: {full_name}\nID: {patient_id}\n\nNote: This is limited mock data from public FHIR."
+    except:
         return None
 
 # --- CORE PROCESSING FUNCTIONS ---
@@ -116,25 +85,30 @@ def load_embeddings():
 def process_documents(data_source, uploaded_files):
     documents = []
     
-    if data_source == "Fetch via FHIR API (Mock Data)":
+    if data_source == "🧪 Try Demo (Synthetic Patient)":
+        st.info("Loading realistic synthetic data (Synthea) for demonstration...")
+        try:
+            loader = TextLoader("demo_patient.txt")
+            documents.extend(loader.load())
+        except Exception as e:
+            st.error("Demo file 'demo_patient.txt' not found in repository. Please create it!")
+            return None
+            
+    elif data_source == "🌐 Fetch via FHIR API":
         st.info("🔄 Reaching out to HAPI FHIR Public Server...")
         fhir_text = fetch_fhir_patient_data()
         if fhir_text:
-            doc = Document(page_content=fhir_text, metadata={"source": "HAPI FHIR Public API"})
-            documents.append(doc)
-            with st.expander("👀 View Raw Data Fetched from API"):
-                st.code(fhir_text, language="text")
+            documents.append(Document(page_content=fhir_text, metadata={"source": "HAPI FHIR API"}))
         else:
-            st.error("Could not retrieve patient data. The public API might be busy.")
+            st.error("Could not retrieve patient data. API might be busy.")
             return None
             
-    elif data_source == "Upload Medical Records" and uploaded_files:
+    elif data_source == "📂 Upload Medical Records" and uploaded_files:
         for file in uploaded_files:
             file_extension = file.name.split(".")[-1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as temp_file:
                 temp_file.write(file.read())
                 temp_file_path = temp_file.name
-            
             try:
                 if file_extension.lower() == "pdf":
                     loader = PyPDFLoader(temp_file_path)
@@ -158,11 +132,10 @@ def process_documents(data_source, uploaded_files):
     return vectorstore
 
 # --- MAIN APPLICATION UI ---
-# Initialize the newest supported Groq model
 llm = ChatGroq(temperature=0, model_name="llama-3.1-8b-instant", groq_api_key=groq_api_key)
 
 st.title("🩻 Patient Profile & Clinical Insights")
-st.markdown("Interact with medical records using real-time AI retrieval.")
+st.markdown("Interact with medical records using secure, explainable AI retrieval.")
 
 with st.spinner("Processing medical data..."):
     vectorstore = process_documents(data_source, uploaded_files)
@@ -170,13 +143,13 @@ with st.spinner("Processing medical data..."):
 if vectorstore:
     st.success("✅ Data successfully processed, vectorized, and ready for analysis.")
     
-    tab_summary, tab_chat = st.tabs(["📋 Patient Summary", "💬 AI Assistant & Citations"])
+    tab_summary, tab_chat = st.tabs(["📋 Clinical Summary", "💬 AI Assistant & Citations"])
     
     with tab_summary:
         st.subheader("Comprehensive Profile Overview")
         if st.button("✨ Generate Medical Summary"):
             with st.spinner("Compiling summary..."):
-                query = "Provide a structured summary of the patient including: Name, Demographics, and Primary Medical Conditions. Format it nicely."
+                query = "Provide a structured clinical summary. Include: Patient Demographics, Active Conditions, Medications, and Recent Vitals. Use bullet points."
                 docs = vectorstore.similarity_search(query, k=5)
                 context = "\n\n".join([doc.page_content for doc in docs])
                 
@@ -193,8 +166,9 @@ if vectorstore:
                 retrieved_docs = vectorstore.similarity_search(user_query, k=3)
                 context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
                 
-                final_prompt = f"""Use the following pieces of context to answer the user's question. 
-                If the answer is not contained within the context, state clearly: "I cannot answer this based on the provided medical records."
+                # STRICT GUARDRAILS ADDED HERE
+                final_prompt = f"""You are a highly accurate clinical AI assistant. Use ONLY the following pieces of context to answer the user's question. 
+                Do not provide general medical advice. If the answer is not explicitly contained within the context, state clearly: "I cannot answer this based on the provided medical records."
                 
                 Context: {context_text}
                 
@@ -207,12 +181,20 @@ if vectorstore:
                 st.markdown("#### 🤖 AI Response")
                 st.info(result.content)
                 
-                st.markdown("#### 📑 Citations & Rationale")
+                st.markdown("#### 📑 Citations & Source Evidence")
                 for i, doc in enumerate(retrieved_docs):
                     with st.expander(f"Reference Document {i+1}"):
-                        source_name = doc.metadata.get('source', 'Unknown Source')
+                        source_name = doc.metadata.get('source', 'demo_patient.txt')
                         st.markdown(f"**Source:** `{source_name}`")
-                        st.markdown(f"**Excerpt:**\n> {doc.page_content}")
+                        st.markdown(f"**Exact Excerpt:**\n> {doc.page_content}")
 else:
-    if data_source == "Upload Medical Records":
+    if data_source == "📂 Upload Medical Records":
         st.info("📂 Please upload PDF or TXT files in the sidebar to begin analysis.")
+
+# --- CLINICAL DISCLAIMER ---
+st.markdown("""
+<div class="disclaimer">
+    <strong>⚠️ Disclaimer:</strong> Health.AI is a demonstration prototype designed for educational and portfolio purposes. 
+    It is not a certified medical device. The AI-generated outputs should never be used as a substitute for professional medical advice, diagnosis, or treatment.
+</div>
+""", unsafe_allow_html=True)
