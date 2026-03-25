@@ -1,0 +1,36 @@
+SYNTHETIC PATIENT RECORD - GENERATED VIA SYNTHEA
+------------------------------------------------
+Patient Name: Evelyn Carter
+Date of Birth: 1945-08-22
+Gender: Female
+MRN: SYN-8472910
+
+CHIEF COMPLAINT:
+Patient presents for a routine 6-month follow-up for chronic condition management. Reports occasional mild dizziness when standing up quickly. No chest pain, shortness of breath, or visual changes. 
+
+ACTIVE CONDITIONS:
+1. Essential (Primary) Hypertension - Diagnosed 2012
+2. Type 2 Diabetes Mellitus without complications - Diagnosed 2015
+3. Osteoarthritis of right knee - Diagnosed 2019
+
+CURRENT MEDICATIONS:
+- Lisinopril 20mg daily (for Hypertension)
+- Metformin 1000mg twice daily (for Type 2 Diabetes)
+- Ibuprofen 400mg as needed for knee pain
+
+RECENT VITALS & LABS (Date: 2024-02-15):
+- Blood Pressure: 138/88 mmHg
+- Heart Rate: 72 bpm
+- Weight: 165 lbs
+- HbA1c: 7.2% (Improved from 7.6% six months prior)
+- Fasting Glucose: 130 mg/dL
+
+PHYSICAL EXAM:
+General: Well-nourished, in no acute distress.
+Cardiovascular: Regular rate and rhythm. No murmurs. 
+Musculoskeletal: Mild crepitus in right knee upon flexion. No edema.
+
+PLAN:
+1. Continue current dosage of Lisinopril. Monitor blood pressure at home.
+2. Diabetes is well-controlled. Continue Metformin. Encourage 30 minutes of moderate exercise daily.
+3. Counselled patient on orthostatic hypotension (dizziness upon standing). Advised to stand slowly and stay hydrated.
