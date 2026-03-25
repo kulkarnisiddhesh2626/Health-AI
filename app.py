@@ -3,7 +3,7 @@ import os
 import tempfile
 import requests
 
-# Bulletproof Modern Imports (No fragile chains)
+# Bulletproof Modern Imports
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -12,21 +12,52 @@ from langchain_community.document_loaders import TextLoader, PyPDFLoader
 from langchain_core.documents import Document
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Health.AI | Clinical Assistant", page_icon="⚕️", layout="wide")
+st.set_page_config(page_title="Health.AI | Clinical Assistant", page_icon="⚕️", layout="wide", initial_sidebar_state="expanded")
+
+# --- SAFE CUSTOM CSS (Enhances UI without breaking text contrast) ---
+st.markdown("""
+<style>
+    /* Modern Buttons */
+    .stButton>button {
+        background-color: #0ea5e9;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        background-color: #0284c7;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+        color: white;
+    }
+    
+    /* Clean Expanders (Cards) */
+    div[data-testid="stExpander"] {
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        margin-bottom: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- SIDEBAR & API SETUP ---
 with st.sidebar:
     st.title("⚕️ Health.AI")
-    st.markdown("**Medical Record Analyzer**")
+    st.markdown("*Clinical Intelligence Dashboard*")
     st.divider()
     
-    groq_api_key = st.text_input("Enter Groq API Key:", type="password", help="Get a free key at console.groq.com")
+    groq_api_key = st.text_input("🔑 Enter Groq API Key:", type="password", help="Get a free key at console.groq.com")
     st.divider()
     
-    st.subheader("Patient Data Source")
+    st.subheader("📊 Patient Data Source")
     data_source = st.radio(
         "Choose input method:", 
-        ["Fetch via FHIR API (Realistic Mock Data)", "Upload Medical Records"]
+        ["Fetch via FHIR API (Mock Data)", "Upload Medical Records"]
     )
     
     uploaded_files = None
@@ -50,7 +81,7 @@ def fetch_fhir_patient_data():
         patient_id = patient.get('id', 'Unknown')
         name_info = patient.get('name', [{}])[0]
         full_name = f"{name_info.get('given', [''])[0]} {name_info.get('family', '')}"
-        gender = patient.get('gender', 'Unknown')
+        gender = patient.get('gender', 'Unknown').capitalize()
         birth_date = patient.get('birthDate', 'Unknown')
         
         patient_text += f"Patient Name: {full_name}\nID: {patient_id}\nGender: {gender}\nBirth Date: {birth_date}\n\n"
@@ -80,14 +111,14 @@ def load_embeddings():
 def process_documents(data_source, uploaded_files):
     documents = []
     
-    if data_source == "Fetch via FHIR API (Realistic Mock Data)":
-        st.info("Reaching out to HAPI FHIR Public Server...")
+    if data_source == "Fetch via FHIR API (Mock Data)":
+        st.info("🔄 Reaching out to HAPI FHIR Public Server...")
         fhir_text = fetch_fhir_patient_data()
         if fhir_text:
             doc = Document(page_content=fhir_text, metadata={"source": "HAPI FHIR Public API"})
             documents.append(doc)
             with st.expander("👀 View Raw Data Fetched from API"):
-                st.text(fhir_text)
+                st.code(fhir_text, language="text")
         else:
             st.error("Could not retrieve patient data. The public API might be busy.")
             return None
@@ -123,41 +154,40 @@ def process_documents(data_source, uploaded_files):
 
 # --- MAIN APPLICATION UI ---
 if not groq_api_key:
-    st.warning("👈 Please enter your Groq API Key in the sidebar to activate Health.AI.")
+    st.warning("👋 **Welcome to Health.AI!** Please paste your Groq API Key in the sidebar on the left to unlock the dashboard.")
     st.stop()
 
 llm = ChatGroq(temperature=0, model_name="llama3-8b-8192", groq_api_key=groq_api_key)
 
-st.title("Patient Profile & Insights")
+st.title("🩻 Patient Profile & Clinical Insights")
+st.markdown("Interact with medical records using real-time AI retrieval.")
 
 with st.spinner("Processing medical data..."):
     vectorstore = process_documents(data_source, uploaded_files)
 
 if vectorstore:
-    st.success("Data successfully processed and vectorized.")
+    st.success("✅ Data successfully processed, vectorized, and ready for analysis.")
     
     tab_summary, tab_chat = st.tabs(["📋 Patient Summary", "💬 AI Assistant & Citations"])
     
     with tab_summary:
-        st.subheader("Comprehensive Profile")
-        if st.button("Generate Medical Summary"):
+        st.subheader("Comprehensive Profile Overview")
+        if st.button("✨ Generate Medical Summary"):
             with st.spinner("Compiling summary..."):
-                query = "Provide a structured summary of the patient including: Name, Demographics, and Primary Medical Conditions."
-                # Manual Retrieval (No Chains)
+                query = "Provide a structured summary of the patient including: Name, Demographics, and Primary Medical Conditions. Format it nicely."
                 docs = vectorstore.similarity_search(query, k=5)
                 context = "\n\n".join([doc.page_content for doc in docs])
                 
                 prompt = f"Based ONLY on the following medical records:\n{context}\n\nTask: {query}"
                 summary_response = llm.invoke(prompt)
-                st.write(summary_response.content)
+                st.info(summary_response.content)
 
     with tab_chat:
         st.subheader("Query Patient Records")
-        user_query = st.text_input("Ask a question about the patient's health or history:")
+        user_query = st.text_input("Ask a specific question about the patient's health or history:")
         
         if user_query:
             with st.spinner("Searching records..."):
-                # Bulletproof Manual Retrieval & Answering (No Chains)
                 retrieved_docs = vectorstore.similarity_search(user_query, k=3)
                 context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
                 
@@ -170,18 +200,17 @@ if vectorstore:
                 
                 Helpful Answer:"""
                 
-                # Ask Groq directly
                 result = llm.invoke(final_prompt)
                 
-                st.markdown("### Response")
+                st.markdown("#### 🤖 AI Response")
                 st.info(result.content)
                 
-                st.markdown("### Citations & Rationale")
+                st.markdown("#### 📑 Citations & Rationale")
                 for i, doc in enumerate(retrieved_docs):
-                    with st.expander(f"Source Document Reference {i+1}"):
+                    with st.expander(f"Reference Document {i+1}"):
                         source_name = doc.metadata.get('source', 'Unknown Source')
-                        st.markdown(f"**Source:** {source_name}")
+                        st.markdown(f"**Source:** `{source_name}`")
                         st.markdown(f"**Excerpt:**\n> {doc.page_content}")
 else:
     if data_source == "Upload Medical Records":
-        st.info("Please upload PDF or TXT files in the sidebar to begin.")
+        st.info("📂 Please upload PDF or TXT files in the sidebar to begin analysis.")
