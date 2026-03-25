@@ -3,13 +3,11 @@ import os
 import tempfile
 import requests
 
-# Modern LangChain Imports
+# Bulletproof Modern Imports (No fragile chains)
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
 from langchain_community.document_loaders import TextLoader, PyPDFLoader
 from langchain_core.documents import Document
 
@@ -145,6 +143,7 @@ if vectorstore:
         if st.button("Generate Medical Summary"):
             with st.spinner("Compiling summary..."):
                 query = "Provide a structured summary of the patient including: Name, Demographics, and Primary Medical Conditions."
+                # Manual Retrieval (No Chains)
                 docs = vectorstore.similarity_search(query, k=5)
                 context = "\n\n".join([doc.page_content for doc in docs])
                 
@@ -158,31 +157,27 @@ if vectorstore:
         
         if user_query:
             with st.spinner("Searching records..."):
-                prompt_template = """Use the following pieces of context to answer the user's question. 
+                # Bulletproof Manual Retrieval & Answering (No Chains)
+                retrieved_docs = vectorstore.similarity_search(user_query, k=3)
+                context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
+                
+                final_prompt = f"""Use the following pieces of context to answer the user's question. 
                 If the answer is not contained within the context, state clearly: "I cannot answer this based on the provided medical records."
                 
-                Context: {context}
-                Question: {question}
+                Context: {context_text}
+                
+                Question: {user_query}
                 
                 Helpful Answer:"""
                 
-                PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-                
-                qa_chain = RetrievalQA.from_chain_type(
-                    llm=llm,
-                    chain_type="stuff",
-                    retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
-                    return_source_documents=True,
-                    chain_type_kwargs={"prompt": PROMPT}
-                )
-                
-                result = qa_chain.invoke({"query": user_query})
+                # Ask Groq directly
+                result = llm.invoke(final_prompt)
                 
                 st.markdown("### Response")
-                st.info(result['result'])
+                st.info(result.content)
                 
                 st.markdown("### Citations & Rationale")
-                for i, doc in enumerate(result['source_documents']):
+                for i, doc in enumerate(retrieved_docs):
                     with st.expander(f"Source Document Reference {i+1}"):
                         source_name = doc.metadata.get('source', 'Unknown Source')
                         st.markdown(f"**Source:** {source_name}")
