@@ -157,7 +157,7 @@ if not groq_api_key:
     st.warning("👋 **Welcome to Health.AI!** Please paste your Groq API Key in the sidebar on the left to unlock the dashboard.")
     st.stop()
 
-llm = ChatGroq(temperature=0, model_name="llama3-8b-8192", groq_api_key=groq_api_key)
+llm = ChatGroq(temperature=0, model_name="llama-3.1-8b-instant", groq_api_key=groq_api_key)
 
 st.title("🩻 Patient Profile & Clinical Insights")
 st.markdown("Interact with medical records using real-time AI retrieval.")
