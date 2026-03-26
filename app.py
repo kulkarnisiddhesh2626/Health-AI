@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import tempfile
 from datetime import datetime
+from PIL import Image
+import pytesseract
 
 # Bulletproof Modern Imports
 from langchain_groq import ChatGroq
@@ -29,7 +31,6 @@ st.markdown("""
     .disclaimer {
         font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;
     }
-    /* Horizontal radio buttons for cleaner UI */
     div.row-widget.stRadio > div { flex-direction: row; flex-wrap: wrap; }
 </style>
 """, unsafe_allow_html=True)
@@ -113,27 +114,27 @@ with st.sidebar:
                 bgcolor="transparent"
                 node [shape=box, style=filled, fillcolor="#ecfdf5", color="#059669", fontname="Helvetica", fontsize=9]
                 edge [color="#047857", arrowsize=0.6]
-                A [label="Patient Records"]
-                B [label="Text Chunking"]
+                A [label="Patient Records\n(Images/Docs)"]
+                B [label="OCR & Text Chunking"]
                 C [label="FAISS Vector DB"]
                 D [label="Groq LLaMA AI"]
                 E [label="Clinical Output"]
                 A -> B -> C -> D -> E
             }
         ''')
-        st.markdown("*Data is vectorized into mathematical embeddings for high-accuracy, hallucination-free retrieval.*")
+        st.markdown("*Multi-modal data is read, vectorized into mathematical embeddings, and passed to the LLM for high-accuracy retrieval.*")
         
     with st.expander("🛠️ Tech Stack & Processing", expanded=False):
         st.markdown("""
         * **LLM Engine:** Groq (LLaMA-3.1-8B-Instant)
         * **Vector DB:** FAISS (Facebook AI Similarity Search)
         * **Embeddings:** HuggingFace `all-MiniLM-L6-v2`
-        * **Ingestion:** Supports PDF, TXT, DOCX, and CSV
+        * **Ingestion:** Supports PDF, TXT, DOCX, CSV, and **Images (PNG, JPG, JPEG via Tesseract OCR)**.
         """)
         
     with st.expander("📋 Scope & Limitations", expanded=False):
         st.markdown("""
-        * **Scope:** Instantly summarizes chronologies, extracts vitals, and highlights clinical events.
+        * **Scope:** Instantly summarizes chronologies, extracts vitals, and highlights clinical events from text and scanned images.
         * **Safety:** Strictly uses provided context. Will not generate outside medical advice.
         * **Limitations:** Not a diagnostic tool. Must be reviewed by a certified physician.
         """)
@@ -150,7 +151,7 @@ def render_triage_response(raw_text, process_time):
     else:
         st.info(raw_text)
 
-# --- CORE PROCESSING FUNCTIONS ---
+# --- CORE PROCESSING FUNCTIONS (NOW WITH OCR) ---
 @st.cache_resource
 def load_embeddings():
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -176,8 +177,12 @@ def process_documents(data_source, selected_data, uploaded_files):
                     documents.extend(Docx2txtLoader(temp_file_path).load())
                 elif file_extension == "csv":
                     documents.extend(CSVLoader(temp_file_path).load())
+                elif file_extension in ["png", "jpg", "jpeg"]:
+                    # OCR Image Processing
+                    extracted_text = pytesseract.image_to_string(Image.open(temp_file_path))
+                    documents.append(Document(page_content=extracted_text, metadata={"source": file.name}))
             except Exception as e:
-                st.error(f"Error reading {file.name}: {e}")
+                st.error(f"Error processing {file.name}. Ensure Tesseract OCR is installed on the server. Error: {e}")
             finally:
                 os.unlink(temp_file_path)
                 
@@ -192,7 +197,7 @@ def process_documents(data_source, selected_data, uploaded_files):
 
 # --- MAIN PAGE: UI ---
 st.title("⚕️ AI-Health Assistant")
-st.markdown("Clinical intelligence and semantic EHR analysis.")
+st.markdown("Clinical intelligence and semantic EHR analysis across Text, Docs, and Images.")
 
 st.markdown("### 1️⃣ Patient Selection")
 data_source = st.radio("Data Source:", ["🧪 Load Demo Patient", "📂 Upload Medical Records"], horizontal=True, label_visibility="collapsed")
@@ -204,7 +209,12 @@ if data_source == "🧪 Load Demo Patient":
     patient_name = st.selectbox("Select Patient Profile:", list(DEMO_PATIENTS.keys()))
     selected_patient_data = DEMO_PATIENTS[patient_name]
 else:
-    uploaded_files = st.file_uploader("Upload Records (PDF, TXT, DOCX, CSV)", type=["pdf", "txt", "docx", "csv"], accept_multiple_files=True)
+    # Uploader now accepts images
+    uploaded_files = st.file_uploader(
+        "Upload Records (PDF, TXT, DOCX, CSV, PNG, JPG)", 
+        type=["pdf", "txt", "docx", "csv", "png", "jpg", "jpeg"], 
+        accept_multiple_files=True
+    )
 
 st.divider()
 
@@ -235,7 +245,6 @@ if vectorstore:
 
     with tab_chat:
         st.markdown("### Quick Queries")
-        # CLICKABLE BUTTONS FOR FAQs
         col1, col2, col3 = st.columns(3)
         with col1:
             st.button("📋 Summarize the medication plan", on_click=set_query, args=("Summarize the medication plan.",))
@@ -266,7 +275,7 @@ if vectorstore:
                         st.markdown(f"**Excerpt {i+1}:** > {doc.page_content}")
 else:
     if data_source == "📂 Upload Medical Records":
-        st.info("Please upload files to proceed.")
+        st.info("Please upload files to proceed. Images will automatically be processed using OCR.")
 
 # --- CLINICAL DISCLAIMER ---
 st.markdown("""
